@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: pointworld-bot-panel
+    runtime: node
+    plan: free
+    autoDeploy: true
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /ping
+    envVars:
+      - key: MAX_ONLINE
+        value: 8
