@@ -12,6 +12,8 @@ class BotFarm {
     this.queue = []
     this._emitT = null
     this._saveT = null
+    this._stagger = null
+    this._lastConnectAt = 0
     for (const nick of NICKNAMES) {
       this.entries.set(nick, {
         nick,
@@ -172,18 +174,40 @@ class BotFarm {
       const e = this.entries.get(n)
       return e && e.status === 'wl' && !e.online && !e.connecting
     })
-    while (this.onlineCount() < MAX_ONLINE && this.queue.length > 0) {
+    const since = Date.now() - (this._lastConnectAt || 0)
+    if (this.onlineCount() < MAX_ONLINE && this.queue.length > 0 && since > 5500) {
       const nick = this.queue.shift()
       const e = this.entries.get(nick)
+      if (e && !e.online && !e.connecting) {
+        e.queued = false
+        this.connect(e)
+      }
+    }
+    this.startStagger()
+  }
+
+  startStagger () {
+    if (this._stagger) return
+    const spacing = Math.max(6, parseInt(process.env.JOIN_SPACING_SEC || '6', 10)) * 1000
+    this._stagger = setInterval(() => {
+      if (this.onlineCount() >= MAX_ONLINE || this.queue.length === 0) {
+        clearInterval(this._stagger)
+        this._stagger = null
+        return
+      }
+      const nick = this.queue.shift()
+      const e = this.entries.get(nick)
+      if (!e || e.online || e.connecting) return
       e.queued = false
       this.connect(e)
-    }
+    }, spacing)
   }
 
   connect (e) {
     if (e.bot || e.online || e.connecting) return
     e.connecting = true
     e.lastError = null
+    this._lastConnectAt = Date.now()
     this.emitState()
     const bot = mineflayer.createBot({
       host: HOST,
