@@ -243,7 +243,6 @@ class BotFarm {
           send('/login ' + PASSWORD)
         }
       }, 3200)
-      setTimeout(() => e.authNow(), 5800)
       this.emitState()
     })
 
@@ -272,15 +271,23 @@ class BotFarm {
           setTimeout(() => e.authNow(), 350)
         }
       }
-      if (/успешно (зарегистр|авториз)|(вы )?зарегистрирован|registered success/i.test(t)) {
+      if (!e.authed) {
+        if (/уже logged|already logged|уже вошли/i.test(t)) {
+          e.authed = true
+        } else if (/уже зарегистр|already registered/i.test(t)) {
+          e.registered = true
+          this.save()
+          e.loginSent = false
+          this.sysLine(e, 'ник уже зарегистрирован — быстрый вход')
+          setTimeout(() => e.authNow(), 250)
+        }
+      }
+      if (/успешно (зарегистр|авториз)|успешную регистрацию|registered success/i.test(t)) {
         e.registered = true
         e.authed = true
         this.save()
-      } else if (/уже зарегистр|already registered/i.test(t)) {
-        e.registered = true
-        this.save()
       }
-      if (/успешно вошли|вы вошли|logged in|login success|вход выполнен/i.test(t)) {
+      if (!e.authed && /успешно вош|вы вошли|вход выполнен|logged in|login success/i.test(t)) {
         e.authed = true
       }
     })
