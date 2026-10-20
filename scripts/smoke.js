@@ -12,9 +12,10 @@ const bot = mineflayer.createBot({
   hideErrors: true
 })
 
-let regSent = 0
-let loginSent = false
+let regSent = false
 let authed = false
+
+if (process.argv.includes('--login')) regSent = true
 
 const send = (cmd) => {
   console.log(`[${ms()}] SEND: ${cmd}`)
@@ -23,11 +24,10 @@ const send = (cmd) => {
 
 const authNow = () => {
   if (authed) return
-  if (regSent === 0) {
-    regSent++
+  if (!regSent) {
+    regSent = true
     send('/register ' + PASSWORD + ' ' + PASSWORD)
-  } else if (!loginSent) {
-    loginSent = true
+  } else {
     send('/login ' + PASSWORD)
   }
 }
@@ -35,19 +35,12 @@ const authNow = () => {
 bot.on('login', () => console.log(`[${ms()}] LOGIN OK`))
 bot.on('spawn', () => {
   console.log(`[${ms()}] SPAWN OK`)
-  setTimeout(authNow, 700)
+  setTimeout(authNow, 300)
 })
 bot.on('messagestr', (s) => {
   console.log(`[${ms()}] CHAT: ${s}`)
-  if (!authed && /\/register/i.test(s) && /используй/i.test(s)) setTimeout(authNow, 350)
-  if (!authed && /\/login/i.test(s) && /используй/i.test(s)) setTimeout(authNow, 350)
-  if (!authed && /уже зарегистрирован/i.test(s)) {
-    loginSent = false
-    console.log(`[${ms()}]   -> уже зарегистрирован: шлю /login немедленно`)
-    setTimeout(authNow, 250)
-  }
-  if (/успешно (зарегистр|вош)|registered success/i.test(s)) authed = true
-  if (!authed && /logged in|login success/i.test(s)) authed = true
+  if (!authed && /\/register/i.test(s) && !regSent) setTimeout(authNow, 250)
+  if (!authed && /\/login/i.test(s) && regSent) setTimeout(authNow, 250)
 })
 
 bot.on('kicked', (r) => console.log(`[${ms()}] KICKED: ${r}`))
@@ -60,4 +53,4 @@ bot.on('end', () => {
 setTimeout(() => {
   console.log(`[${ms()}] TIMEOUT, exit`)
   process.exit(0)
-}, 40000)
+}, 70000)
