@@ -1,0 +1,58 @@
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{display:flex;background:#0b0c0e;color:#e6e8ec;font-family:'Consolas','JetBrains Mono','Menlo','Courier New',monospace;overflow:hidden}
+
+button{font-family:inherit}
+
+aside{width:252px;flex:none;background:#0d0e12;border-right:1px solid #191c22;display:flex;flex-direction:column;gap:10px;padding:14px 12px}
+.logo{color:#3d9bff;font-weight:700;letter-spacing:2px;font-size:17px;margin-bottom:6px;padding-left:4px;text-shadow:0 0 12px rgba(61,155,255,.35)}
+.tabs{display:flex;gap:8px}
+.tab{flex:1;padding:9px 4px;border-radius:9px;border:1px solid #21252d;background:#14161b;color:#9aa3b2;font-weight:700;font-size:11px;letter-spacing:.8px;cursor:pointer}
+.tab.active{background:#2f7cf6;border-color:#2f7cf6;color:#fff;box-shadow:0 0 14px rgba(47,124,246,.35)}
+.list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding-right:2px}
+.row{display:flex;justify-content:space-between;align-items:center;background:#14171e;border:1px solid #1d2129;border-radius:10px;padding:10px 10px 10px 12px;cursor:pointer;user-select:none}
+.row:hover{border-color:#2b313c}
+.row.sel{border-color:#2f7cf6;box-shadow:0 0 0 1px rgba(47,124,246,.35)}
+.nick{font-weight:700;font-size:13px;color:#f0f2f5;margin-bottom:6px}
+.chip{font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:4px;display:inline-block}
+.chip.online{background:#ffd23f;color:#222}
+.chip.off{background:#31363f;color:#8b93a2}
+.chip.mid{background:#2b3040;color:#9fb0d0}
+.mini{font-size:10px;font-weight:800;letter-spacing:.5px;padding:6px 9px;border:none;border-radius:6px;cursor:pointer;flex:none}
+.accept{background:#2ecc57;color:#073b12}
+.kick{background:#e5484d;color:#fff}
+
+main{flex:1;display:flex;min-width:0;height:100%}
+.left{flex:1;min-width:0;display:flex;align-items:flex-start;justify-content:center;border-left:1px solid #14171c}
+.placeholder{width:100%;padding-top:16vh;text-align:center;color:#79818e;font-weight:700;letter-spacing:2px;font-size:16px;line-height:2.1}
+.card{background:#15161a;border:1px solid #23272f;border-radius:12px;width:min(540px,94%);margin:16px 12px 0;padding:16px 16px 14px}
+.headname{display:flex;align-items:center;gap:10px}
+.botname{font-size:15px;font-weight:700;color:#fff}
+.btnrow{display:flex;gap:10px;margin:14px 0 8px}
+.big{flex:1;padding:11px;border:none;border-radius:8px;font-weight:800;font-size:13px;letter-spacing:1px;cursor:pointer}
+.big:disabled{opacity:.45;cursor:not-allowed}
+.walk{background:#2ecc71;color:#062d12}
+.stop{background:#e5484d;color:#fff}
+.err{font-size:10px;color:#8b93a2;min-height:14px;margin-bottom:6px}
+.invhead{display:flex;gap:8px;margin:8px 0 10px}
+.acell{width:54px;height:34px;background:#0b0c0f;border:1px solid #22262d;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#666f7d;font-weight:700;letter-spacing:.5px}
+.grid{display:grid;grid-template-columns:repeat(9,1fr);gap:7px}
+.cell{aspect-ratio:1/1.05;background:#08090b;border:1px solid #22262d;border-radius:4px;position:relative}
+.cell::after{content:'';position:absolute;left:50%;top:50%;width:2px;height:2px;margin:-1px 0 0 -1px;background:#6b7480;border-radius:50%}
+
+.chatside{width:47%;max-width:640px;min-width:340px;display:flex;flex-direction:column;border-left:1px solid #14171c}
+.chatlog{flex:1;min-height:0;overflow-y:auto;background:#07080a;border:1px solid #1b1f26;border-radius:10px;margin:14px 12px 8px;padding:12px;font-size:12.5px;line-height:1.65}
+.mline{color:#c8cdd6;word-break:break-word}
+.mline .tm{color:#3f4552;margin-right:6px;font-size:10px}
+.mline.sys{color:#6f7a8d}
+.chatbar{display:flex;gap:8px;padding:0 12px 14px}
+.inp{flex:1;background:#0d0f12;border:1px solid #23272f;border-radius:8px;padding:10px 12px;color:#e6e8ec;font-family:inherit;font-size:13px;outline:none}
+.inp:focus{border-color:#2f7cf6}
+.send{width:46px;background:#2ecc71;border:none;border-radius:8px;color:#07310e;font-weight:800;font-size:15px;cursor:pointer}
+.send:disabled{opacity:.4;cursor:not-allowed}
+
+body.noselect .chatside{display:none}
+
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#23262d;border-radius:4px}
