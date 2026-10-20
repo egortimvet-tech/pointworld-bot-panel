@@ -12,6 +12,8 @@ class BotFarm {
     this.queue = []
     this._emitT = null
     this._saveT = null
+    this._stagger = null
+    this.detectedVersion = null
     for (const nick of NICKNAMES) {
       this.entries.set(nick, {
         nick,
@@ -175,9 +177,28 @@ class BotFarm {
     while (this.onlineCount() < MAX_ONLINE && this.queue.length > 0) {
       const nick = this.queue.shift()
       const e = this.entries.get(nick)
+      if (!e || e.online || e.connecting) continue
       e.queued = false
       this.connect(e)
+      break
     }
+    this.startStagger()
+  }
+
+  startStagger () {
+    if (this._stagger) return
+    this._stagger = setInterval(() => {
+      if (this.onlineCount() >= MAX_ONLINE || this.queue.length === 0) {
+        clearInterval(this._stagger)
+        this._stagger = null
+        return
+      }
+      const nick = this.queue.shift()
+      const e = this.entries.get(nick)
+      if (!e || e.online || e.connecting) return
+      e.queued = false
+      this.connect(e)
+    }, 3500)
   }
 
   connect (e) {
@@ -190,6 +211,7 @@ class BotFarm {
       port: PORT,
       username: e.nick,
       auth: 'offline',
+      version: this.detectedVersion || undefined,
       hideErrors: true,
       checkTimeoutInterval: 45000
     })
@@ -209,6 +231,7 @@ class BotFarm {
       e.online = true
       e.connecting = false
       e.reconnectDelay = 45000
+      if (bot.version) this.detectedVersion = bot.version
       this.sysLine(e, 'зашёл на сервер')
       const seq = ++e.authSeq
       e.regSent = 0
