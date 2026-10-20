@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POINTWORLD — управление ботами</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="noselect">
+<aside>
+  <div class="logo">POINTWORLD</div>
+  <div class="tabs">
+    <button class="tab active" id="tab-wl">WHITE LIST</button>
+    <button class="tab" id="tab-bl">BLACK LIST</button>
+  </div>
+  <div class="list" id="list-wl"></div>
+  <div class="list" id="list-bl" style="display:none"></div>
+</aside>
+<main>
+  <section class="left">
+    <div class="placeholder" id="ph">СИСТЕМА ГОТОВА<br>ВЫБЕРИТЕ БОТА В WHITE LIST</div>
+    <div class="card" id="card" style="display:none">
+      <div class="headname">
+        <span class="chip off" id="botchip">офлайн</span>
+        <span class="botname" id="botname">—</span>
+      </div>
+      <div class="btnrow">
+        <button class="big walk" id="btn-walk">ХОДИТЬ</button>
+        <button class="big stop" id="btn-stop">СТОП</button>
+      </div>
+      <div class="err" id="boterr"></div>
+      <div class="invhead">
+        <div class="acell">head</div>
+        <div class="acell">torso</div>
+        <div class="acell">legs</div>
+        <div class="acell">feet</div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </section>
+  <section class="chatside">
+    <div class="chatlog" id="chatlog"></div>
+    <form class="chatbar" id="chatform" autocomplete="off">
+      <input class="inp" id="chatinput" placeholder="Введите сообщение..." maxlength="220">
+      <button class="send" id="chatsend" type="submit">&gt;</button>
+    </form>
+  </section>
+</main>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
