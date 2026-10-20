@@ -12,8 +12,6 @@ class BotFarm {
     this.queue = []
     this._emitT = null
     this._saveT = null
-    this._stagger = null
-    this.detectedVersion = null
     for (const nick of NICKNAMES) {
       this.entries.set(nick, {
         nick,
@@ -177,44 +175,21 @@ class BotFarm {
     while (this.onlineCount() < MAX_ONLINE && this.queue.length > 0) {
       const nick = this.queue.shift()
       const e = this.entries.get(nick)
-      if (!e || e.online || e.connecting) continue
       e.queued = false
       this.connect(e)
-      break
     }
-    this.startStagger()
-  }
-
-  startStagger () {
-    if (this._stagger) return
-    const spacing = Math.max(30, parseInt(process.env.JOIN_SPACING_SEC || '32', 10)) * 1000
-    this._stagger = setInterval(() => {
-      if (this.onlineCount() >= MAX_ONLINE || this.queue.length === 0) {
-        clearInterval(this._stagger)
-        this._stagger = null
-        return
-      }
-      const nick = this.queue.shift()
-      const e = this.entries.get(nick)
-      if (!e || e.online || e.connecting) return
-      e.queued = false
-      this.connect(e)
-    }, spacing)
   }
 
   connect (e) {
     if (e.bot || e.online || e.connecting) return
     e.connecting = true
     e.lastError = null
-    e.tConnect = Date.now()
-    console.log(`[${e.nick}] connecting...`)
     this.emitState()
     const bot = mineflayer.createBot({
       host: HOST,
       port: PORT,
       username: e.nick,
       auth: 'offline',
-      version: this.detectedVersion || undefined,
       hideErrors: true,
       checkTimeoutInterval: 45000
     })
@@ -231,11 +206,9 @@ class BotFarm {
 
   attach (e, bot) {
     bot.on('login', () => {
-      console.log(`[${e.nick}] login in ${((Date.now() - (e.tConnect || Date.now())) / 1000).toFixed(1)}s, ver=${bot.version}`)
       e.online = true
       e.connecting = false
       e.reconnectDelay = 45000
-      if (bot.version) this.detectedVersion = bot.version
       this.sysLine(e, 'зашёл на сервер')
       const seq = ++e.authSeq
       e.regSent = 0
@@ -270,11 +243,11 @@ class BotFarm {
           send('/login ' + PASSWORD)
         }
       }, 3200)
+      setTimeout(() => e.authNow(), 5800)
       this.emitState()
     })
 
     bot.on('spawn', () => {
-      console.log(`[${e.nick}] spawn in ${((Date.now() - (e.tConnect || Date.now())) / 1000).toFixed(1)}s`)
       e.spawned = true
       e.home = bot.entity && bot.entity.position ? { x: bot.entity.position.x, z: bot.entity.position.z } : null
       setTimeout(() => e.authNow(), 400)
@@ -299,23 +272,15 @@ class BotFarm {
           setTimeout(() => e.authNow(), 350)
         }
       }
-      if (!e.authed) {
-        if (/уже logged|already logged|уже вошли/i.test(t)) {
-          e.authed = true
-        } else if (/уже зарегистр|already registered/i.test(t)) {
-          e.registered = true
-          this.save()
-          e.loginSent = false
-          this.sysLine(e, 'ник уже зарегистрирован — быстрый вход')
-          setTimeout(() => e.authNow(), 250)
-        }
-      }
-      if (/успешно (зарегистр|авториз)|успешную регистрацию|registered success/i.test(t)) {
+      if (/успешно (зарегистр|авториз)|(вы )?зарегистрирован|registered success/i.test(t)) {
         e.registered = true
         e.authed = true
         this.save()
+      } else if (/уже зарегистр|already registered/i.test(t)) {
+        e.registered = true
+        this.save()
       }
-      if (!e.authed && /успешно вош|вы вошли|вход выполнен|logged in|login success/i.test(t)) {
+      if (/успешно вошли|вы вошли|logged in|login success|вход выполнен/i.test(t)) {
         e.authed = true
       }
     })
@@ -325,14 +290,12 @@ class BotFarm {
       if (typeof r === 'object') {
         try { r = JSON.stringify(r) } catch (err) {}
       }
-      console.log(`[${e.nick}] kicked: ${String(r).slice(0, 200)}`)
       this.sysLine(e, 'кикнут сервером: ' + String(r).slice(0, 140))
       this.emitState()
     })
 
     bot.on('error', (err) => {
       e.lastError = String((err && err.message) || err).slice(0, 140)
-      console.log(`[${e.nick}] error: ${e.lastError}`)
       this.sysLine(e, 'ошибка: ' + e.lastError)
       this.emitState()
     })
