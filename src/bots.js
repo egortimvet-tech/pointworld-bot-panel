@@ -43,14 +43,7 @@ class BotFarm {
     return Array.from(this.entries.keys())
   }
 
-  init () {
-    let saved = null
-    try {
-      const p = path.join(DATA_DIR, 'state.json')
-      if (fs.existsSync(p)) saved = JSON.parse(fs.readFileSync(p, 'utf8'))
-    } catch (err) {
-      console.error('[state] load failed:', err.message)
-    }
+  applyState (saved) {
     for (const b of (saved && saved.bots) || []) {
       const e = this.entries.get(b.nick)
       if (!e) continue
@@ -60,8 +53,93 @@ class BotFarm {
     }
     this.queue = this.order().filter(n => this.entries.get(n).status === 'wl')
     console.log(`[farm] bots: ${this.order().length}, whitelisted: ${this.queue.length}, max online: ${MAX_ONLINE}`)
+  }
+
+  init () {
+    let saved = null
+    let savedAt = 0
+    try {
+      const p = path.join(DATA_DIR, 'state.json')
+      if (fs.existsSync(p)) {
+        saved = JSON.parse(fs.readFileSync(p, 'utf8'))
+        savedAt = saved.updatedAt || 0
+      }
+    } catch (err) {
+      console.error('[state] load failed:', err.message)
+    }
+    this.applyState(saved)
     this.startServerProbe()
     setTimeout(() => this.maybeConnect(), 5000)
+    setTimeout(() => this.restoreFromGitHub(savedAt), 2000)
+  }
+
+  ghRequest (method, url, body, accept, cb) {
+    const https = require('https')
+    const repo = process.env.GITHUB_REPO
+    if (!process.env.GITHUB_TOKEN || !repo) { cb(new Error('no gh env')); return }
+    const data = body ? Buffer.from(JSON.stringify(body)) : null
+    const req = https.request({
+      host: 'api.github.com',
+      path: url,
+      method,
+      headers: {
+        'User-Agent': 'pointworld-bot-panel',
+        Authorization: 'token ' + process.env.GITHUB_TOKEN,
+        Accept: accept || 'application/vnd.github+json',
+        'Content-Length': data ? data.length : 0
+      }
+    }, (res) => {
+      const chunks = []
+      res.on('data', (c) => chunks.push(c))
+      res.on('end', () => cb(null, res.statusCode, Buffer.concat(chunks)))
+    })
+    req.on('error', (e) => cb(e))
+    if (data) req.write(data)
+    req.end()
+  }
+
+  stateSnapshot () {
+    return {
+      updatedAt: Date.now(),
+      bots: this.order().map(n => {
+        const e = this.entries.get(n)
+        return { nick: e.nick, status: e.status, registered: e.registered, walkOn: e.walkOn }
+      })
+    }
+  }
+
+  syncToGitHub () {
+    if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_REPO) return
+    let b64
+    try {
+      b64 = fs.readFileSync(path.join(DATA_DIR, 'state.json')).toString('base64')
+    } catch (err) {
+      return
+    }
+    this.ghRequest('GET', '/repos/' + process.env.GITHUB_REPO + '/contents/data/state.json?ref=main', null, null, (err, code, body) => {
+      const patch = { message: 'state sync', content: b64, branch: 'main' }
+      if (!err && code === 200) {
+        try { patch.sha = JSON.parse(body.toString('utf8')).sha } catch (e2) {}
+      }
+      this.ghRequest('PUT', '/repos/' + process.env.GITHUB_REPO + '/contents/data/state.json', patch, null, (err2, code2) => {
+        if (err2 || code2 >= 300) console.error('[state] github sync failed:', (err2 && err2.message) || code2)
+        else console.log('[state] github sync ok')
+      })
+    })
+  }
+
+  restoreFromGitHub (localAt) {
+    if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_REPO) return
+    this.ghRequest('GET', '/repos/' + process.env.GITHUB_REPO + '/contents/data/state.json?ref=main', null, 'application/vnd.github.raw', (err, code, body) => {
+      if (err || code !== 200) { console.log('[state] github restore skip (' + code + ')'); return }
+      let saved = null
+      try { saved = JSON.parse(body.toString('utf8')) } catch (e2) { console.error('[state] github restore parse failed'); return }
+      if ((saved.updatedAt || 0) < (localAt || 0)) { console.log('[state] github state older than local — skip'); return }
+      console.log('[state] restoring state from github (updatedAt ' + (saved.updatedAt) + ')')
+      this.applyState(saved)
+      this.emitState()
+      this.maybeConnect()
+    })
   }
 
   startServerProbe () {
@@ -157,16 +235,10 @@ class BotFarm {
     if (this._saveT) return
     this._saveT = setTimeout(() => {
       this._saveT = null
-      const data = {
-        updatedAt: Date.now(),
-        bots: this.order().map(n => {
-          const e = this.entries.get(n)
-          return { nick: e.nick, status: e.status, registered: e.registered, walkOn: e.walkOn }
-        })
-      }
       try {
         const p = path.join(DATA_DIR, 'state.json')
-        fs.writeFileSync(p, JSON.stringify(data, null, 2))
+        fs.writeFileSync(p, JSON.stringify(this.stateSnapshot(), null, 2))
+        this.syncToGitHub()
       } catch (err) {
         console.error('[state] save failed:', err.message)
       }
