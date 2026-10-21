@@ -430,6 +430,18 @@ class BotFarm {
         }
       }, 3200)
       setTimeout(() => e.authNow(), 5800)
+      setTimeout(() => {
+        if (e.authSeq !== seq || !e.bot || e.authed) {
+          if (e.authed) return
+          if (!e.bot || e.authSeq !== seq) return
+          if (!e.loginSent || !e.authed) {
+            console.log('[' + e.nick + '] auth fallback: unconditional /login')
+            e.loginSent = true
+            this.sysLine(e, 'аварийный вход (/login)')
+            send('/login ' + PASSWORD)
+          }
+        }
+      }, 10500)
       this.emitState()
     })
 
@@ -439,6 +451,7 @@ class BotFarm {
       setTimeout(() => e.authNow(), 400)
       this.stopWalk(e)
       if (e.walkOn) this.startWalkLoop(e)
+      this.startAntiAfk(e)
       this.emitState()
     })
 
@@ -501,11 +514,55 @@ class BotFarm {
       e.spawned = false
       ++e.authSeq
       this.stopWalk(e)
+      this.stopAntiAfk(e)
       this.sysLine(e, 'отключился')
       if (e.status === 'wl') this.scheduleReconnect(e)
       this.emitState()
       this.maybeConnect()
     })
+  }
+
+  startAntiAfk (e) {
+    if (e.antiAfkTimer) return
+    e.lastMoveAt = Date.now()
+    e.lastPos = null
+    e.antiAfkTimer = setInterval(() => {
+      const bot = e.bot
+      if (!bot || !e.spawned) return
+      const pos = bot.entity && bot.entity.position
+      if (!pos) return
+      if (e.lastPos) {
+        const dx = pos.x - e.lastPos.x
+        const dz = pos.z - e.lastPos.z
+        if (dx * dx + dz * dz > 0.25) {
+          e.lastMoveAt = Date.now()
+          e.lastPos = pos
+          return
+        }
+      }
+      e.lastPos = pos
+      const idle = Date.now() - (e.lastMoveAt || Date.now())
+      if (idle > 210000) {
+        console.log('[' + e.nick + '] anti-afk nudge (стоял ' + Math.round(idle / 1000) + 'с)')
+        e.lastMoveAt = Date.now()
+        const yt = e.walkToken
+        const yaw = Math.random() * Math.PI * 2
+        try { bot.look(yaw, 0, true) } catch (err) {}
+        try { bot.setControlState('jump', true) } catch (err2) {}
+        setTimeout(() => {
+          if (e.walkToken === yt && e.bot) {
+            try { e.bot.setControlState('jump', false) } catch (err3) {}
+          }
+        }, 600)
+      }
+    }, 20000)
+  }
+
+  stopAntiAfk (e) {
+    if (e.antiAfkTimer) {
+      clearInterval(e.antiAfkTimer)
+      e.antiAfkTimer = null
+    }
   }
 
   scheduleReconnect (e) {
