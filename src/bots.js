@@ -162,7 +162,7 @@ class BotFarm {
           this.onServerState(true)
         } else {
           this._probeMisses = (this._probeMisses || 0) + 1
-          console.log('[probe] miss ' + this._probeMisses)
+          console.log('[probe] miss ' + this._probeMisses + ' (' + (r.err || 'no info') + ')')
           if (this._probeMisses >= 2) this.onServerState(false)
         }
       })
@@ -321,7 +321,20 @@ class BotFarm {
       const e = this.entries.get(n)
       return e && e.status === 'wl' && !e.online && !e.connecting
     })
-    if (this._serverUp === false) return
+    if (this._serverUp === false) {
+      const since = Date.now() - (this._canaryAt || 0)
+      if (since > 90000 && this.queue.length > 0 && this.onlineCount() < MAX_ONLINE) {
+        this._canaryAt = Date.now()
+        const nick = this.queue.shift()
+        const e = this.entries.get(nick)
+        if (e && !e.online && !e.connecting) {
+          e.queued = false
+          console.log('[canary] пробное подключение ' + nick + ' (проба: off)')
+          this.connect(e)
+        }
+      }
+      return
+    }
     const since = Date.now() - (this._lastConnectAt || 0)
     if (this.onlineCount() < MAX_ONLINE && this.queue.length > 0 && since > 5500) {
       const nick = this.queue.shift()
@@ -463,12 +476,14 @@ class BotFarm {
       if (typeof r === 'object') {
         try { r = JSON.stringify(r) } catch (err) {}
       }
+      console.log(`[${e.nick}] KICKED: ` + String(r).slice(0, 200))
       this.sysLine(e, 'кикнут сервером: ' + String(r).slice(0, 140))
       this.emitState()
     })
 
     bot.on('error', (err) => {
       e.lastError = String((err && err.message) || err).slice(0, 140)
+      console.log(`[${e.nick}] ERROR: ` + e.lastError)
       this.sysLine(e, 'ошибка: ' + e.lastError)
       this.emitState()
     })
