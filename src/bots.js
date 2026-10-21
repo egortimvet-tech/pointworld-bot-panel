@@ -363,7 +363,8 @@ class BotFarm {
       username: e.nick,
       auth: 'offline',
       hideErrors: true,
-      checkTimeoutInterval: 45000
+      checkTimeoutInterval: 45000,
+      viewDistance: 'tiny'
     })
     e.bot = bot
     this.attach(e, bot)
