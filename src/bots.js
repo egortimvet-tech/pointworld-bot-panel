@@ -14,6 +14,8 @@ class BotFarm {
     this._saveT = null
     this._stagger = null
     this._lastConnectAt = 0
+    this._probeTimer = null
+    this._serverUp = null
     for (const nick of NICKNAMES) {
       this.entries.set(nick, {
         nick,
@@ -58,7 +60,52 @@ class BotFarm {
     }
     this.queue = this.order().filter(n => this.entries.get(n).status === 'wl')
     console.log(`[farm] bots: ${this.order().length}, whitelisted: ${this.queue.length}, max online: ${MAX_ONLINE}`)
+    this.startServerProbe()
     setTimeout(() => this.maybeConnect(), 5000)
+  }
+
+  startServerProbe () {
+    if (this._probeTimer) return
+    const net = require('net')
+    const probe = () => {
+      const s = net.connect({ host: HOST, port: PORT, timeout: 5000 })
+      let done = false
+      const finish = (up) => {
+        if (done) return
+        done = true
+        try { s.destroy() } catch (err) {}
+        this.onServerState(up)
+      }
+      s.once('connect', () => finish(true))
+      s.once('error', () => finish(false))
+      s.once('timeout', () => finish(false))
+    }
+    probe()
+    this._probeTimer = setInterval(probe, 15000)
+  }
+
+  onServerState (up) {
+    if (this._serverUp === up) return
+    console.log('[probe] minecraft server ' + (up ? 'online' : 'offline'))
+    this._serverUp = up
+    if (up) this.recoverAll()
+  }
+
+  recoverAll () {
+    for (const e of this.entries.values()) {
+      if (e.status !== 'wl' || e.online || e.connecting) continue
+      e.reconnectDelay = 45000
+      if (e.reconnectTimer) {
+        clearTimeout(e.reconnectTimer)
+        e.reconnectTimer = null
+      }
+      if (!this.queue.includes(e.nick)) this.queue.push(e.nick)
+      const sys = { ts: Date.now(), sys: true, text: 'сервер снова онлайн — быстрый перезаход' }
+      e.chat.push(sys)
+      if (e.chat.length > 90) e.chat.splice(0, e.chat.length - 90)
+      this.io.emit('chat:msg', { nick: e.nick, ts: sys.ts, sys: true, text: sys.text })
+    }
+    this.maybeConnect()
   }
 
   onlineCount () {
