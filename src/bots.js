@@ -156,7 +156,16 @@ class BotFarm {
       }, 5000)
     }
     const probe = () => {
-      this.mcStatus((r) => this.onServerState(!!r.ok))
+      this.mcStatus((r) => {
+        if (r.ok) {
+          this._probeMisses = 0
+          this.onServerState(true)
+        } else {
+          this._probeMisses = (this._probeMisses || 0) + 1
+          console.log('[probe] miss ' + this._probeMisses)
+          if (this._probeMisses >= 2) this.onServerState(false)
+        }
+      })
     }
     probe()
     this._probeTimer = setInterval(probe, 15000)
@@ -178,6 +187,10 @@ class BotFarm {
   }
 
   onServerState (up) {
+    if (this.onlineCount() > 0 && !up) {
+      console.log('[probe] bots online but probe says down — trusting bots')
+      up = true
+    }
     if (this._serverUp === up) return
     console.log('[probe] minecraft server ' + (up ? 'online' : 'offline'))
     this._serverUp = up
