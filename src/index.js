@@ -14,7 +14,7 @@ farm.init()
 app.use(express.static(path.join(__dirname, '..', 'public')))
 
 app.get('/ping', (req, res) => {
-  res.json({ ok: true, uptime: Math.round(process.uptime()), online: farm.onlineCount() })
+  res.json({ ok: true, uptime: Math.round(process.uptime()), online: farm.onlineCount(), queue: farm.queue.length, serverUp: farm._serverUp, stagger: !!farm._stagger })
 })
 
 io.on('connection', (socket) => {
