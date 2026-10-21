@@ -66,22 +66,88 @@ class BotFarm {
 
   startServerProbe () {
     if (this._probeTimer) return
-    const net = require('net')
+    if (!this._houseT) {
+      this._houseT = setInterval(() => {
+        for (const e of this.entries.values()) {
+          if (e.connecting && e.tConnect && Date.now() - e.tConnect > 60000 && e.bot) {
+            console.log(`[${e.nick}] connect stuck >60s, dropping`)
+            e.lastError = 'подключение зависло — перезапуск'
+            try { e.bot.end() } catch (err) {}
+          }
+        }
+      }, 5000)
+    }
     const probe = () => {
-      const s = net.connect({ host: HOST, port: PORT, timeout: 5000 })
-      let done = false
-      const finish = (up) => {
-        if (done) return
-        done = true
-        try { s.destroy() } catch (err) {}
-        this.onServerState(up)
-      }
-      s.once('connect', () => finish(true))
-      s.once('error', () => finish(false))
-      s.once('timeout', () => finish(false))
+      this.mcStatus((r) => this.onServerState(!!r.ok))
     }
     probe()
     this._probeTimer = setInterval(probe, 15000)
+  }
+
+  mcStatus (cb) {
+    const net = require('net')
+    const vi = (n) => {
+      const bytes = []
+      while (true) {
+        let b = n & 0x7f
+        n >>>= 7
+        if (n !== 0) b |= 0x80
+        bytes.push(b)
+        if (n === 0) break
+      }
+      return Buffer.from(bytes)
+    }
+    const rd = (buf, off) => {
+      let num = 0
+      let shift = 0
+      let cur = off
+      while (true) {
+        const b = buf[cur]
+        num |= (b & 0x7f) << shift
+        cur++
+        if ((b & 0x80) === 0) break
+        shift += 7
+      }
+      return { value: num, offset: cur }
+    }
+    const hostL = Buffer.byteLength(HOST)
+    const handshake = Buffer.concat([
+      vi(7 + hostL + 2),
+      Buffer.from([0]), Buffer.from([1]),
+      vi(hostL), Buffer.from(HOST),
+      Buffer.from([0, 0]), Buffer.from([PORT >> 8, PORT & 0xff]),
+      Buffer.from([1])
+    ])
+    const request = Buffer.from([1, 0])
+    const s = net.connect({ host: HOST, port: PORT, timeout: 7000 })
+    let acc = Buffer.alloc(0)
+    let finished = false
+    const finish = (up, info) => {
+      if (finished) return
+      finished = true
+      try { s.destroy() } catch (err) {}
+      cb(up ? { ok: true } : { ok: false, err: info })
+    }
+    s.on('connect', () => {
+      s.write(handshake)
+      setTimeout(() => { if (!finished) s.write(request) }, 50)
+    })
+    s.on('data', (d) => {
+      acc = Buffer.concat([acc, d])
+      try {
+        const len = rd(acc, 0)
+        if (acc.length < len.offset + len.value) return
+        const body = acc.slice(len.offset, len.offset + len.value)
+        const id = rd(body, 0)
+        JSON.parse(body.slice(id.offset).toString())
+        finish(true)
+      } catch (err) {
+        if (acc.length > 4) finish(false, String(err && err.message))
+      }
+    })
+    s.on('error', (e) => finish(false, String(e && e.message)))
+    s.on('timeout', () => finish(false, 'timeout'))
+    s.on('close', () => finish(false, 'closed'))
   }
 
   onServerState (up) {
@@ -221,6 +287,7 @@ class BotFarm {
       const e = this.entries.get(n)
       return e && e.status === 'wl' && !e.online && !e.connecting
     })
+    if (this._serverUp === false) return
     const since = Date.now() - (this._lastConnectAt || 0)
     if (this.onlineCount() < MAX_ONLINE && this.queue.length > 0 && since > 5500) {
       const nick = this.queue.shift()
