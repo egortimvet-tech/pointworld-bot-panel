@@ -1,5 +1,5 @@
 {
-  "updatedAt": 1792578156314,
+  "updatedAt": 1792578159421,
   "bots": [
     {
       "nick": "ZxsVant",
@@ -15,7 +15,7 @@
     },
     {
       "nick": "FanSp1dyk",
-      "status": "black",
+      "status": "wl",
       "registered": false,
       "walkOn": true
     },
