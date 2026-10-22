@@ -187,8 +187,8 @@ class BotFarm {
   }
 
   onServerState (up) {
-    if (this.onlineCount() > 0 && !up) {
-      console.log('[probe] bots online but probe says down — trusting bots')
+    if (this.onlineRealCount() > 0 && !up) {
+      console.log('[probe] боты онлайн, но проба молчит — верим ботам')
       up = true
     }
     if (this._serverUp === up) return
@@ -217,6 +217,12 @@ class BotFarm {
   onlineCount () {
     let n = 0
     for (const e of this.entries.values()) if (e.online || e.connecting) n++
+    return n
+  }
+
+  onlineRealCount () {
+    let n = 0
+    for (const e of this.entries.values()) if (e.online) n++
     return n
   }
 
@@ -322,8 +328,9 @@ class BotFarm {
       return e && e.status === 'wl' && !e.online && !e.connecting
     })
     if (this._serverUp === false) {
+      const gap = this.onlineRealCount() === 0 ? 25000 : 90000
       const since = Date.now() - (this._canaryAt || 0)
-      if (since > 90000 && this.queue.length > 0 && this.onlineCount() < MAX_ONLINE) {
+      if (since > gap && this.queue.length > 0 && this.onlineCount() < MAX_ONLINE) {
         this._canaryAt = Date.now()
         const nick = this.queue.shift()
         const e = this.entries.get(nick)
@@ -374,6 +381,7 @@ class BotFarm {
       host: HOST,
       port: PORT,
       username: e.nick,
+      version: '1.20.1',
       auth: 'offline',
       hideErrors: true,
       checkTimeoutInterval: 45000,
