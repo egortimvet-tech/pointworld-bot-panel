@@ -542,8 +542,10 @@ class BotFarm {
       if (e.lastPos) {
         const dx = pos.x - e.lastPos.x
         const dz = pos.z - e.lastPos.z
-        if (dx * dx + dz * dz > 0.25) {
+        const dy = Math.abs(pos.y - e.lastPos.y)
+        if (dx * dx + dz * dz > 0.25 || dy > 0.3) {
           e.lastMoveAt = Date.now()
+          e.nudgeCount = 0
           e.lastPos = pos
           return
         }
@@ -551,17 +553,27 @@ class BotFarm {
       e.lastPos = pos
       const idle = Date.now() - (e.lastMoveAt || Date.now())
       if (idle > 210000) {
-        console.log('[' + e.nick + '] anti-afk nudge (стоял ' + Math.round(idle / 1000) + 'с)')
+        console.log('[' + e.nick + '] анти-афк: стоил ' + Math.round(idle / 1000) + 'с — рывок')
         e.lastMoveAt = Date.now()
+        e.nudgeCount = (e.nudgeCount || 0) + 1
         const yt = e.walkToken
-        const yaw = Math.random() * Math.PI * 2
-        try { bot.look(yaw, 0, true) } catch (err) {}
-        try { bot.setControlState('jump', true) } catch (err2) {}
+        try { bot.look(Math.random() * Math.PI * 2, 0, true) } catch (err) {}
+        const dirs = ['left', 'right', 'back', 'forward']
+        const dir = dirs[e.nudgeCount % dirs.length]
+        try {
+          bot.setControlState('jump', true)
+          bot.setControlState(dir, true)
+        } catch (err2) {}
         setTimeout(() => {
           if (e.walkToken === yt && e.bot) {
             try { e.bot.setControlState('jump', false) } catch (err3) {}
           }
         }, 600)
+        setTimeout(() => {
+          if (e.walkToken === yt && e.bot) {
+            try { e.bot.setControlState(dir, false) } catch (err4) {}
+          }
+        }, 2600)
       }
     }, 20000)
   }
@@ -575,8 +587,8 @@ class BotFarm {
 
   scheduleReconnect (e) {
     if (e.reconnectTimer) return
-    const delay = Math.min(e.reconnectDelay, 900000)
-    e.reconnectDelay = Math.min(e.reconnectDelay * 1.75, 900000)
+    const delay = Math.min(e.reconnectDelay, 240000)
+    e.reconnectDelay = Math.min(e.reconnectDelay * 1.75, 240000)
     this.sysLine(e, 'переподключение через ' + Math.round(delay / 1000) + ' сек')
     e.reconnectTimer = setTimeout(() => {
       e.reconnectTimer = null
