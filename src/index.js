@@ -15,7 +15,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')))
 
 app.get('/ping', (req, res) => {
   const m = process.memoryUsage()
-  res.json({ ok: true, uptime: Math.round(process.uptime()), online: farm.onlineCount(), queue: farm.queue.length, serverUp: farm._serverUp, stagger: !!farm._stagger, rssMB: Math.round(m.rss / 1048576), heapMB: Math.round(m.heapUsed / 1048576) })
+  res.json({ ok: true, uptime: Math.round(process.uptime()), online: farm.onlineCount(), real: farm.onlineRealCount(), queue: farm.queue.length, serverUp: farm._serverUp, stagger: !!farm._stagger, rssMB: Math.round(m.rss / 1048576), heapMB: Math.round(m.heapUsed / 1048576) })
 })
 
 io.on('connection', (socket) => {
